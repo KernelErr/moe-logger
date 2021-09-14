@@ -1,0 +1,26 @@
+[package]
+name = "moe_logger"
+version = "0.1.0"
+edition = "2018"
+repository = "https://github.com/KernelErr/moe-logger"
+authors = ["Rui Li <lr_cn@outlook.com>"]
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+description = """
+A logger with various features.
+"""
+keywords = ["logger", "log", "logging", "moe"]
+categories = ["development-tools::debugging"]
+
+include = [
+    "src/",
+    "LICENSE-*",
+    "README.md"
+]
+
+[dependencies]
+env_logger = "0.9.0"
+log = "0.4.14"
+tokio-uring = "0.1.0"
+tinytemplate = "1.2.1"
+serde = { version = "1.0", features = ["derive"] }
