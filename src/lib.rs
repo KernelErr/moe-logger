@@ -24,8 +24,51 @@ pub struct LogConfig {
 }
 
 impl LogConfig {
-    pub fn new() -> LogConfig {
-        LogConfig {
+    /// Get a builder for the log config
+    pub fn builder() -> LogConfigBuilder {
+        LogConfigBuilder::default()
+    }
+
+    /// Get a log config with default settings
+    ///
+    /// Default settings are:
+    /// ```
+    /// LogConfig {
+    ///     env: "RUST_LOG",
+    ///     output: "stdout",
+    ///     file: false,
+    ///     format: DEFAULT_TEMPLATE,
+    ///     rotation: 0,
+    /// }
+    /// ```
+    pub fn default() -> LogConfig {
+        LogConfigBuilder::default().into()
+    }
+}
+
+pub struct LogConfigBuilder {
+    pub env: &'static str,
+    pub output: &'static str,
+    pub file: bool,
+    pub format: &'static str,
+    pub rotation: usize,
+}
+
+impl LogConfigBuilder {
+    /// Create a new log config builder with default settings
+    ///
+    /// Default settings are:
+    /// ```
+    /// LogConfig {
+    ///     env: "RUST_LOG",
+    ///     output: "stdout",
+    ///     file: false,
+    ///     format: DEFAULT_TEMPLATE,
+    ///     rotation: 0,
+    /// }
+    /// ```
+    pub fn new() -> LogConfigBuilder {
+        LogConfigBuilder {
             env: "RUST_LOG",
             output: "stdout",
             file: false,
@@ -34,11 +77,24 @@ impl LogConfig {
         }
     }
 
-    pub fn env(&mut self, env: &'static str) {
-        self.env = env;
+    /// Set env viarable name for log level
+    ///
+    /// If this field is invalid, the default value of "RUST_LOG" will be used.
+    pub fn env(self, env: &'static str) -> LogConfigBuilder {
+        LogConfigBuilder {
+            env,
+            output: self.output,
+            file: self.file,
+            format: self.format,
+            rotation: self.rotation,
+        }
     }
 
-    pub fn output(&mut self, output: &'static str) {
+    /// Set output destination for log
+    ///
+    /// Default value is "stdout". That means the output will not be written to any file.
+    /// Please ensure the output path is valid and not an existing file. Move old log file to another location before.
+    pub fn output(self, output: &'static str) -> LogConfigBuilder {
         tokio_uring::start(async {
             match OpenOptions::new()
                 .append(true)
@@ -48,42 +104,90 @@ impl LogConfig {
             {
                 Ok(f) => {
                     f.close().await.unwrap();
-                    self.file = true;
-                    self.output = output;
+                    LogConfigBuilder {
+                        env: self.env,
+                        output,
+                        file: true,
+                        format: self.format,
+                        rotation: self.rotation,
+                    }
                 }
                 Err(e) => {
                     eprintln!("Failed to open log file: {}", e);
                     eprintln!("Moe Logger would only use stdout.");
-                    self.file = false;
-                    self.output = "stdout";
+                    LogConfigBuilder {
+                        env: self.env,
+                        output: "stdout",
+                        file: false,
+                        format: self.format,
+                        rotation: self.rotation,
+                    }
                 }
             }
-        });
+        })
     }
 
-    pub fn format(&mut self, format: &'static str) {
+    /// Set log format for lines written to file
+    ///
+    /// Default value is "{L} {T} > {M}\n". Check README for detailed explanation.
+    pub fn format(self, format: &'static str) -> LogConfigBuilder {
         let mut tt = TinyTemplate::new();
         tt.add_template("default", DEFAULT_TEMPLATE).unwrap();
         match tt.add_template("custom", format) {
-            Ok(_) => {
-                self.format = format;
-            }
+            Ok(_) => LogConfigBuilder {
+                env: self.env,
+                output: self.output,
+                file: self.file,
+                format,
+                rotation: self.rotation,
+            },
             Err(e) => {
                 eprintln!("Failed to parse log format: {}", e);
                 eprintln!("Moe Logger would use default format.");
-                self.format = DEFAULT_TEMPLATE;
+                LogConfigBuilder {
+                    env: self.env,
+                    output: self.output,
+                    file: self.file,
+                    format: DEFAULT_TEMPLATE,
+                    rotation: self.rotation,
+                }
             }
-        };
+        }
     }
 
-    pub fn rotation(&mut self, rotation: usize) {
-        self.rotation = rotation;
+    /// Set file rotation interval
+    ///
+    /// Default value is 0. That means no rotation.
+    pub fn rotation(self, rotation: usize) -> LogConfigBuilder {
+        LogConfigBuilder {
+            env: self.env,
+            output: self.output,
+            file: self.file,
+            format: self.format,
+            rotation,
+        }
+    }
+
+    pub fn finish(self) -> LogConfig {
+        self.into()
     }
 }
 
-impl Default for LogConfig {
-    fn default() -> Self {
-        Self::new()
+impl Default for LogConfigBuilder {
+    fn default() -> LogConfigBuilder {
+        LogConfigBuilder::new()
+    }
+}
+
+impl From<LogConfigBuilder> for LogConfig {
+    fn from(builder: LogConfigBuilder) -> LogConfig {
+        LogConfig {
+            env: builder.env,
+            output: builder.output,
+            file: builder.file,
+            format: builder.format,
+            rotation: builder.rotation,
+        }
     }
 }
 
@@ -97,11 +201,7 @@ pub struct Context<'a> {
     F: &'a str,
 }
 
-pub fn init(log_config: LogConfig) {
-    init_builder(log_config);
-}
-
-pub fn init_builder(config: LogConfig) {
+pub fn init(config: LogConfig) {
     let mut builder = Builder::new();
     let env_var = std::env::var(config.env).unwrap_or_else(|_| "info".to_string());
 
@@ -160,7 +260,7 @@ pub fn init_builder(config: LogConfig) {
                             Ok(_) => {
                                 FILE_COUNT.fetch_add(1, Ordering::SeqCst);
                                 WRITE_LINE.store(0, Ordering::Relaxed);
-                            },
+                            }
                             Err(e) => {
                                 eprintln!("Failed to rotate log: {}", e);
                             }

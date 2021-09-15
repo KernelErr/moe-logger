@@ -1,6 +1,6 @@
 [package]
 name = "moe_logger"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2018"
 repository = "https://github.com/KernelErr/moe-logger"
 authors = ["Rui Li <lr_cn@outlook.com>"]

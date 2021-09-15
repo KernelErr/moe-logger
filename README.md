@@ -8,21 +8,22 @@ Append following lines to `Cargo.toml`:
 
 ```rust
 log = "0.4"
-moe_logger = "0.1"
+moe_logger = "0.2"
 ```
 
 There's an example:
 
 ```rust
-use log::info;
+use log::{info, warn, error, debug};
 use moe_logger::LogConfig;
 
 fn main() {
-    let mut log_config = LogConfig::new();
-    log_config.env("RUST_LOG"); // Which environment variable for log level
-    log_config.output("run.log"); // Log output file, default is stdout
-    log_config.format("{t} {L} {T} > {M}\n"); // Log format for file
-    log_config.rotation(10000); // Rotate file after how many lines
+    let log_config = LogConfig::builder()
+        .env("MOE_LOG_LEVEL")
+        .output("run.log")
+        .format("{t} {L} {T} > {M}\n")
+        .rotation(10000)
+        .finish();
     moe_logger::init(log_config);
 
     info!("Di di ba ba wu~");
